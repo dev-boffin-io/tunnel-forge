@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import webbrowser
+from html import escape
 from typing import Optional
 
 from PyQt6.QtWidgets import (
@@ -44,9 +45,9 @@ class TunnelTab(QWidget):
 
     def __init__(self, port: int, tab_index: int) -> None:
         super().__init__()
-        self.worker:    Optional[WorkerThread] = None
-        self.last_url:  Optional[str]          = None
-        self.tab_index: int                    = tab_index
+        self.worker: Optional[WorkerThread] = None
+        self.last_url: Optional[str] = None
+        self.tab_index: int = tab_index
         self._all_log_lines: list[tuple[str, str]] = []
 
         self._manager = TunnelManager()
@@ -80,17 +81,17 @@ class TunnelTab(QWidget):
         root.addLayout(port_row)
 
         # ── Mode selector ─────────────────────────────────────────────
-        mode_box    = QGroupBox("Tunnel Mode")
+        mode_box = QGroupBox("Tunnel Mode")
         mode_layout = QHBoxLayout(mode_box)
         mode_layout.setSpacing(40)
         mode_layout.setContentsMargins(20, 16, 20, 16)
-        self.radio_quick  = QRadioButton("🚀  Quick Tunnel")
-        self.radio_custom = QRadioButton("🔑  Custom Domain")
+        self.radio_quick = QRadioButton("🚀 Quick Tunnel")
+        self.radio_custom = QRadioButton("🔑 Custom Domain")
         self.radio_quick.setStyleSheet("font-size:17px;")
         self.radio_custom.setStyleSheet("font-size:17px;")
         self.radio_quick.setChecked(True)
         self._mode_group = QButtonGroup()
-        self._mode_group.addButton(self.radio_quick,  0)
+        self._mode_group.addButton(self.radio_quick, 0)
         self._mode_group.addButton(self.radio_custom, 1)
         mode_layout.addWidget(self.radio_quick)
         mode_layout.addWidget(self.radio_custom)
@@ -132,7 +133,7 @@ class TunnelTab(QWidget):
         cl.addLayout(r1)
 
         r2, _, self.hostname_input = _field_row("Hostname:")
-        self.hostname_input.setPlaceholderText("app.yourdomain.com  (optional)")
+        self.hostname_input.setPlaceholderText("app.yourdomain.com (optional)")
         cl.addLayout(r2)
 
         r3 = QHBoxLayout()
@@ -142,7 +143,7 @@ class TunnelTab(QWidget):
         cfg_lbl.setStyleSheet("font-size:17px; color:#c9d1d9;")
         self.config_path_input = QLineEdit()
         self.config_path_input.setFixedHeight(46)
-        self.config_path_input.setPlaceholderText("~/.cloudflared/config.yml  (optional)")
+        self.config_path_input.setPlaceholderText("~/.cloudflared/config.yml (optional)")
         browse_btn = QPushButton("Browse")
         browse_btn.setFixedWidth(110)
         browse_btn.setFixedHeight(46)
@@ -152,7 +153,7 @@ class TunnelTab(QWidget):
         r3.addWidget(browse_btn)
         cl.addLayout(r3)
 
-        hint = QLabel("ℹ️  Use 'Setup Custom Domain' button for one-click setup.")
+        hint = QLabel("ℹ️ Use 'Setup Custom Domain' button for one-click setup.")
         hint.setStyleSheet("color:#6e7681; font-size:15px; padding:6px 2px;")
         cl.addWidget(hint)
         self.stack.addWidget(custom_panel)
@@ -163,7 +164,7 @@ class TunnelTab(QWidget):
         root.addWidget(self.stack)
 
         # ── Status label ──────────────────────────────────────────────
-        self.status_label = QLabel("⚪  Idle")
+        self.status_label = QLabel("⚪ Idle")
         self.status_label.setStyleSheet(
             "color:#8b949e; font-size:17px; font-weight:600;"
             "padding:8px 12px; border:1px solid #21262d; border-radius:6px;"
@@ -173,7 +174,7 @@ class TunnelTab(QWidget):
         # ── Action buttons ────────────────────────────────────────────
         btn_row = QHBoxLayout()
         btn_row.setSpacing(16)
-        self.btn      = QPushButton("LAUNCH TUNNEL")
+        self.btn = QPushButton("LAUNCH TUNNEL")
         self.copy_btn = QPushButton("COPY URL")
         self.btn.setFixedHeight(56)
         self.copy_btn.setFixedHeight(56)
@@ -291,7 +292,7 @@ class TunnelTab(QWidget):
                 f"No application on port {port_txt}.\n\nStart your server first.",
             )
             self._append_log(
-                f"<span style='color:#f85149'>[ERR] Port {port_txt} idle.</span>",
+                f"<span style='color:#f85149'>[ERR] Port {escape(port_txt)} idle.</span>",
                 f"[ERR] Port {port_txt} idle.",
             )
             return
@@ -302,7 +303,7 @@ class TunnelTab(QWidget):
             return
 
         static_url: Optional[str] = None
-        mode_label  = ""
+        mode_label = ""
 
         try:
             if self.radio_custom.isChecked():
@@ -327,7 +328,7 @@ class TunnelTab(QWidget):
                     tunnel_name=tunnel_name,
                     config_path=config_path,
                 )
-                mode_label = f"custom domain via <b>{tunnel_name}</b>"
+                mode_label = f"custom domain via <b>{escape(tunnel_name)}</b>"
             else:
                 cmd = self._manager.build_command("quick", port_txt)
                 mode_label = "quick tunnel"
@@ -340,7 +341,7 @@ class TunnelTab(QWidget):
         self._all_log_lines.clear()
         self.console.clear()
         self._append_log(
-            f"<span style='color:#3fb950'>[OK] Starting {mode_label} on port {port_txt}...</span>",
+            f"<span style='color:#3fb950'>[OK] Starting {mode_label} on port {escape(port_txt)}...</span>",
             f"[OK] Starting on port {port_txt}",
         )
         self._set_status("🟡 Connecting...", "#e3b341")
@@ -359,7 +360,8 @@ class TunnelTab(QWidget):
     # ------------------------------------------------------------------
 
     def _on_log(self, line: str) -> None:
-        html = f"<span style='color:#8b949e;'>{line}</span>"
+        # escape raw log output before embedding in HTML
+        html = f"<span style='color:#8b949e;'>{escape(line)}</span>"
         self._append_log(html, line)
 
     def _on_connected(self) -> None:
@@ -372,9 +374,10 @@ class TunnelTab(QWidget):
         self.copy_btn.setEnabled(True)
         self._set_status(f"🟢 {url}", "#3fb950")
 
+        safe_url = escape(url)
         html = (
             f"<span style='color:#3fb950;'><b>[URL]</b> "
-            f"<a href='{url}' style='color:#58a6ff;'>{url}</a></span>"
+            f"<a href='{safe_url}' style='color:#58a6ff;'>{safe_url}</a></span>"
         )
         self._append_log(html, f"[URL] {url}")
 
