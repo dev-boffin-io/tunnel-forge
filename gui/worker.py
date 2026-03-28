@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from queue import Empty
+from queue import Empty, Queue
 from typing import Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -28,17 +28,17 @@ class WorkerThread(QThread):
     stopped_signal   — worker has fully stopped
     """
 
-    log_signal:       pyqtSignal = pyqtSignal(str)
-    url_signal:       pyqtSignal = pyqtSignal(str)
+    log_signal: pyqtSignal = pyqtSignal(str)
+    url_signal: pyqtSignal = pyqtSignal(str)
     connected_signal: pyqtSignal = pyqtSignal()
-    stopped_signal:   pyqtSignal = pyqtSignal()
+    stopped_signal: pyqtSignal = pyqtSignal()
 
     def __init__(self, cmd: list[str], static_url: Optional[str] = None) -> None:
         super().__init__()
-        self.cmd        = cmd
+        self.cmd = cmd
         self.static_url = static_url
-        self._running   = True
-        self._process   = None
+        self._running = True
+        self._process = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -64,6 +64,7 @@ class WorkerThread(QThread):
                 break
 
             current_url: Optional[str] = self.static_url
+            q: Optional[Queue] = None  # initialise here so finally is always safe
 
             try:
                 self._process, q = start_subprocess(self.cmd)
@@ -91,7 +92,8 @@ class WorkerThread(QThread):
 
             finally:
                 safe_terminate(self._process)
-                drain_queue(q)  # type: ignore[possibly-undefined]
+                if q is not None:
+                    drain_queue(q)
                 current_url = self.static_url
 
             if not self._running:
