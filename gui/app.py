@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from constants import APP_ID, VERSION
+from gui.installer_dialog import InstallerDialog
 from gui.setup_dialog import SetupDialog
 from gui.tunnel_tab import TunnelTab
 from utils.logger import get_logger
@@ -90,6 +91,11 @@ class TunnelForgeGUI(QMainWindow):
         self._build_ui(initial_port)
         self.setStyleSheet(_STYLESHEET)
         self._register_single_instance()
+        # Auto-prompt installer if cloudflared is missing
+        from utils.paths import get_cloudflared_path
+        from PyQt6.QtCore import QTimer
+        if not get_cloudflared_path():
+            QTimer.singleShot(500, self._open_installer)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -115,10 +121,15 @@ class TunnelForgeGUI(QMainWindow):
         # Top bar
         top_row = QHBoxLayout()
         top_row.setContentsMargins(16, 12, 16, 0)
+        install_btn = QPushButton("⬇️  Install / Update cloudflared")
+        install_btn.setFixedHeight(48)
+        install_btn.clicked.connect(self._open_installer)
         setup_btn = QPushButton("⚙️  Setup Custom Domain")
         setup_btn.setFixedHeight(48)
         setup_btn.clicked.connect(self._open_setup)
         top_row.addStretch()
+        top_row.addWidget(install_btn)
+        top_row.addSpacing(10)
         top_row.addWidget(setup_btn)
         root.addLayout(top_row)
 
@@ -167,6 +178,10 @@ class TunnelForgeGUI(QMainWindow):
 
     def _open_setup(self) -> None:
         dlg = SetupDialog(self)
+        dlg.exec()
+
+    def _open_installer(self) -> None:
+        dlg = InstallerDialog(self)
         dlg.exec()
 
     # ------------------------------------------------------------------
