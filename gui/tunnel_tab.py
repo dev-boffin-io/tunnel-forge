@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-import webbrowser
+import subprocess
+import sys
 from html import escape
 from typing import Optional
 
@@ -35,6 +36,19 @@ from utils.logger import get_logger
 from utils.paths import get_cloudflared_path
 
 log = get_logger("tunnel_tab")
+
+
+def _open_url(url: str) -> None:
+    """Open a URL in the default browser — works on Windows, macOS, Linux."""
+    try:
+        if sys.platform == "win32":
+            os.startfile(url)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", url])
+        else:
+            subprocess.Popen(["xdg-open", url])
+    except Exception as exc:
+        log.warning("Could not open browser: %s", exc)
 
 
 class TunnelTab(QWidget):
@@ -383,7 +397,7 @@ class TunnelTab(QWidget):
         self._append_log(html, f"[URL] {url}")
 
         if self.auto_open_check.isChecked():
-            webbrowser.open(url)
+            _open_url(url)
 
     def _on_stopped(self) -> None:
         self._reset_url()
