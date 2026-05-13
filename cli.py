@@ -7,6 +7,20 @@ import time
 import webbrowser
 from queue import Empty
 
+# ── Windows: enable ANSI colour output ────────────────────────────────────────
+if sys.platform == "win32":
+    try:
+        import colorama          # preferred: pip install colorama
+        colorama.init()
+    except ImportError:
+        try:                     # fallback: enable VT processing via ctypes (Win10+)
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleMode(
+                ctypes.windll.kernel32.GetStdHandle(-11), 7
+            )
+        except Exception:
+            pass                 # give up silently — colours just won't render
+
 from constants import MAX_RESTARTS, RESTART_DELAY_S
 from core.cloudflared import TunnelManager
 from core.network import is_service_running

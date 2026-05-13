@@ -9,7 +9,7 @@ from utils.logger import get_logger
 log = get_logger("parser")
 
 # UUID pattern for tunnel ID extraction
-_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f-]{27}")
+_UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}")
 
 # Hostname validation (basic)
 _HOSTNAME_RE = re.compile(

@@ -53,7 +53,9 @@ class ConfigManager:
         }
 
         out_path = config_path or str(CF_DIR / f"{tunnel_name}-config.yml")
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        parent = os.path.dirname(out_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
 
         try:
             with open(out_path, "w") as f:

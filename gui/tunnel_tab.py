@@ -261,7 +261,8 @@ class TunnelTab(QWidget):
     def _set_status(self, text: str, color: str = "#8b949e") -> None:
         self.status_label.setText(text)
         self.status_label.setStyleSheet(
-            f"color:{color}; font-size:12px; padding:2px 4px;"
+            f"color:{color}; font-size:17px; font-weight:600;"
+            "padding:8px 12px; border:1px solid #21262d; border-radius:6px;"
         )
 
     def _reset_url(self) -> None:
