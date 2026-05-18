@@ -1,0 +1,98 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: 🪟 Windows Build
+    runs-on: windows-latest
+
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyqt6 pyqt6-qt6 pyqt6-sip
+          pip install pyyaml psutil colorama
+          pip install pyinstaller
+
+      - name: 🔨 Build GUI (tunnel-forge folder)
+        run: |
+          pyinstaller `
+            --onedir `
+            --name "tunnel-forge" `
+            --windowed `
+            --collect-all PyQt6 `
+            --collect-all yaml `
+            --hidden-import psutil `
+            --hidden-import colorama `
+            --add-data "core;core" `
+            --add-data "gui;gui" `
+            --add-data "utils;utils" `
+            --add-data "assets;assets" `
+            --add-data "constants.py;." `
+            --add-data "cli.py;." `
+            main.py
+
+      - name: 🔨 Build CLI (tunnel-forge-cli folder)
+        run: |
+          pyinstaller `
+            --onedir `
+            --name "tunnel-forge-cli" `
+            --collect-all yaml `
+            --hidden-import psutil `
+            --hidden-import colorama `
+            --add-data "core;core" `
+            --add-data "utils;utils" `
+            --add-data "constants.py;." `
+            cli.py
+
+      - name: 📦 Zip outputs
+        run: |
+          Compress-Archive -Path dist\tunnel-forge     -DestinationPath dist\tunnel-forge.zip
+          Compress-Archive -Path dist\tunnel-forge-cli -DestinationPath dist\tunnel-forge-cli.zip
+
+      - name: 📤 Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnel-forge-windows
+          path: |
+            dist/tunnel-forge.zip
+            dist/tunnel-forge-cli.zip
+          retention-days: 30
+
+  release:
+    name: 🚀 GitHub Release
+    needs: build-windows
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: ⬇️ Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnel-forge-windows
+          path: dist/
+
+      - name: 🏷️ Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/tunnel-forge.zip
+            dist/tunnel-forge-cli.zip
+          generate_release_notes: true
