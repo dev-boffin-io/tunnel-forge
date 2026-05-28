@@ -141,11 +141,27 @@ class InstallerDialog(QDialog):
 
         layout.addLayout(path_row)
 
-        # Detected path hint
+        # ── Detected path + action buttons row ───────────────────────────────
+        detect_row = QHBoxLayout()
+
         self.detected_label = QLabel()
-        self.detected_label.setStyleSheet("color:#8b949e;font-size:13px;")
+        self.detected_label.setStyleSheet("font-size:14px;font-weight:bold;")
         self._refresh_detected_label()
-        layout.addWidget(self.detected_label)
+        detect_row.addWidget(self.detected_label, stretch=1)
+
+        self.detect_btn = QPushButton("🔍 Detect")
+        self.detect_btn.setFixedWidth(110)
+        self.detect_btn.setToolTip("Re-scan for cloudflared binary")
+        self.detect_btn.clicked.connect(self._on_detect_clicked)
+        detect_row.addWidget(self.detect_btn)
+
+        self.check_ver_btn = QPushButton("⟳ Check Version")
+        self.check_ver_btn.setFixedWidth(170)
+        self.check_ver_btn.setToolTip("Fetch installed & latest version")
+        self.check_ver_btn.clicked.connect(self._start_version_check)
+        detect_row.addWidget(self.check_ver_btn)
+
+        layout.addLayout(detect_row)
 
         # ── Progress bar (hidden until download starts) ───────────────────────
         self.progress = QProgressBar()
@@ -179,9 +195,23 @@ class InstallerDialog(QDialog):
     def _refresh_detected_label(self) -> None:
         p = get_cloudflared_path()
         if p:
-            self.detected_label.setText(f"Detected: {p}")
+            self.detected_label.setStyleSheet(
+                "font-size:14px;font-weight:bold;color:#e3b341;"
+            )
+            self.detected_label.setText(f"✔ Detected: {p}")
         else:
-            self.detected_label.setText("Detected: ✗ not found")
+            self.detected_label.setStyleSheet(
+                "font-size:14px;font-weight:bold;color:#f85149;"
+            )
+            self.detected_label.setText("✗ Not found — install or set path manually")
+
+    def _on_detect_clicked(self) -> None:
+        self._refresh_detected_label()
+        p = get_cloudflared_path()
+        if p:
+            self._log(f"🔍 Detected: {p}", "#e3b341")
+        else:
+            self._log("🔍 cloudflared not found on any known path.", "#f85149")
 
     def _browse_binary(self) -> None:
         import os
