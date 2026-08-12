@@ -8,6 +8,8 @@ setlocal enabledelayedexpansion
 
 set APP=tunnel-forge
 set SRC=main.py
+set CLI_APP=tunnel-forge-cli
+set CLI_SRC=cli.py
 set ICON=assets\tunnel-forge.png
 set BIN_DIR=bin
 set VENV=.venv
@@ -59,7 +61,7 @@ echo [OK]  Dependencies installed
 if not exist "!BIN_DIR!\" mkdir "!BIN_DIR!"
 
 :: ── Build with PyInstaller ───────────────────────────────────
-echo [..]  Building with PyInstaller...
+echo [..]  Building !APP! (GUI + CLI) with PyInstaller...
 
 set EXTRA=
 if "!DEBUG!"=="DEBUG=1" set EXTRA=--log-level DEBUG
@@ -81,13 +83,34 @@ if "!DEBUG!"=="DEBUG=1" set EXTRA=--log-level DEBUG
 
 if errorlevel 1 (
     echo.
-    echo [ERR] PyInstaller build failed.
+    echo [ERR] PyInstaller build failed for !APP!.
+    exit /b 1
+)
+
+echo [..]  Building !CLI_APP! (CLI-only, no PyQt6) with PyInstaller...
+
+"!VENV!\Scripts\pyinstaller.exe" ^
+    --noconfirm ^
+    --onefile ^
+    --name "!CLI_APP!" ^
+    --distpath "!BIN_DIR!" ^
+    --workpath ".build" ^
+    --specpath ".spec" ^
+    --add-data "core;core" ^
+    --add-data "utils;utils" ^
+    !EXTRA! ^
+    "!CLI_SRC!"
+
+if errorlevel 1 (
+    echo.
+    echo [ERR] PyInstaller build failed for !CLI_APP!.
     exit /b 1
 )
 
 echo.
 echo ============================================================
 echo [OK]  Binary  : !BIN_DIR!\!APP!.exe
+echo [OK]  Binary  : !BIN_DIR!\!CLI_APP!.exe
 echo [!!]  Place cloudflared.exe in the same folder before running.
 echo        Download: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/
 echo ============================================================

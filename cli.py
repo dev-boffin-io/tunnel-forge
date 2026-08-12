@@ -125,3 +125,9 @@ def run_cli(args: argparse.Namespace) -> int:
             time.sleep(RESTART_DELAY_S)
 
     return 0
+
+
+if __name__ == "__main__":
+    # Standalone entry point for the tunnel-forge-cli binary — no GUI/PyQt6
+    # dependency involved. Always runs in CLI mode regardless of --cli.
+    sys.exit(run_cli(build_arg_parser().parse_args()))

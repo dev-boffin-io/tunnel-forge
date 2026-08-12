@@ -7,8 +7,12 @@ APP     := tunnel-forge
 SRC     := main.py
 ICON    := assets/tunnel-forge.png
 
+CLI_APP := tunnel-forge-cli
+CLI_SRC := cli.py
+
 BIN_DIR   := ./bin
 BINARY    := $(BIN_DIR)/$(APP)
+CLI_BINARY := $(BIN_DIR)/$(CLI_APP)
 
 VENV      := .venv
 VENV_BIN  := $(VENV)/bin
@@ -27,6 +31,7 @@ CORE_ABS   := $(CURDIR_ABS)/core
 GUI_ABS    := $(CURDIR_ABS)/gui
 UTILS_ABS  := $(CURDIR_ABS)/utils
 SRC_ABS    := $(CURDIR_ABS)/$(SRC)
+CLI_SRC_ABS := $(CURDIR_ABS)/$(CLI_SRC)
 
 # PyInstaller path separator (: on Linux/macOS, ; on Windows)
 SEP := :
@@ -49,7 +54,7 @@ help:
 	@echo ""
 	@echo "  TunnelForge — available targets"
 	@echo ""
-	@echo "  make build      Build the binary → $(BINARY)"
+	@echo "  make build      Build the binaries → $(BINARY) & $(CLI_BINARY)"
 	@echo "  make install    Install symlink + desktop entry (requires build first)"
 	@echo "  make uninstall  Remove installed files"
 	@echo "  make clean      Remove build artifacts"
@@ -94,9 +99,9 @@ $(VENV): check-venv-pkg
 # ─── Build ───────────────────────────────────────────────────────────────────
 
 build: $(VENV)
-	@rm -f $(BINARY)
+	@rm -f $(BINARY) $(CLI_BINARY)
 	@mkdir -p $(BIN_DIR)
-	@echo "🔨 Building $(APP)..."
+	@echo "🔨 Building $(APP) (GUI + CLI)..."
 	@$(VENV_BIN)/pyinstaller \
 		--onefile \
 		--strip \
@@ -112,10 +117,25 @@ build: $(VENV)
 		--add-data "$(GUI_ABS)$(SEP)gui" \
 		--add-data "$(UTILS_ABS)$(SEP)utils" \
 		$(SRC_ABS)
+	@echo "🔨 Building $(CLI_APP) (CLI-only, no PyQt6)..."
+	@$(VENV_BIN)/pyinstaller \
+		--onefile \
+		--strip \
+		$(if $(filter 1,$(DEBUG)),--log-level DEBUG,) \
+		--name $(CLI_APP) \
+		--distpath $(CURDIR_ABS)/$(BIN_DIR) \
+		--workpath $(CURDIR_ABS)/$(BUILD_DIR) \
+		--specpath $(CURDIR_ABS)/$(SPEC_DIR) \
+		--hidden-import psutil \
+		--hidden-import colorama \
+		--add-data "$(CORE_ABS)$(SEP)core" \
+		--add-data "$(UTILS_ABS)$(SEP)utils" \
+		$(CLI_SRC_ABS)
 	@rm -rf $(VENV) $(BUILD_DIR) $(SPEC_DIR) \
 		__pycache__ core/__pycache__ gui/__pycache__ utils/__pycache__ \
 		*.pyc *.pyo *.spec
 	@echo "✅ Built → $(BINARY)"
+	@echo "✅ Built → $(CLI_BINARY)"
 
 # ─── Install (requires a built binary — does NOT rebuild) ────────────────────
 
@@ -125,10 +145,17 @@ install:
 		echo "❌ Binary not found at $(BINARY). Run 'make build' first."; \
 		exit 1; \
 	fi
+	@if [ ! -f "$(CLI_BINARY)" ]; then \
+		echo "❌ Binary not found at $(CLI_BINARY). Run 'make build' first."; \
+		exit 1; \
+	fi
 	@mkdir -p $(BIN_INSTALL)
 	@BINARY_ABS=$$(realpath $(BINARY) 2>/dev/null || readlink -f $(BINARY) 2>/dev/null || echo $(CURDIR_ABS)/$(BINARY)); \
 		ln -sf "$$BINARY_ABS" $(BIN_INSTALL)/$(APP)
 	@echo "✅ Symlink → $(BIN_INSTALL)/$(APP)"
+	@CLI_BINARY_ABS=$$(realpath $(CLI_BINARY) 2>/dev/null || readlink -f $(CLI_BINARY) 2>/dev/null || echo $(CURDIR_ABS)/$(CLI_BINARY)); \
+		ln -sf "$$CLI_BINARY_ABS" $(BIN_INSTALL)/$(CLI_APP)
+	@echo "✅ Symlink → $(BIN_INSTALL)/$(CLI_APP)"
 	@mkdir -p $(DESKTOP_DIR)
 	@printf '[Desktop Entry]\nName=Tunnel Forge\nExec="%s"\nType=Application\nTerminal=false\nCategories=Network;Utility;\n%s\n' \
 		"$(BIN_INSTALL)/$(APP)" \
@@ -148,6 +175,7 @@ install:
 uninstall:
 	@echo "🗑️  Removing $(APP)..."
 	@rm -f $(BIN_INSTALL)/$(APP)
+	@rm -f $(BIN_INSTALL)/$(CLI_APP)
 	@rm -f $(DESKTOP_DIR)/$(APP).desktop
 	@echo "✅ Uninstalled"
 
