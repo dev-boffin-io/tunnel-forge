@@ -63,15 +63,15 @@ python main.py --port 8080
 
 **Linux:**
 ```bash
-make build          # produces ./bin/tunnel-forge
-make install        # symlinks to ~/.local/bin + writes .desktop entry
+make build          # produces ./bin/tunnel-forge (GUI) and ./bin/tunnel-forge-cli (CLI-only)
+make install        # symlinks both to ~/.local/bin + writes .desktop entry
 ```
 
 **Windows:**
 ```bat
-build.bat           # produces .\bin\tunnel-forge.exe
+build.bat           # produces .\bin\tunnel-forge.exe and .\bin\tunnel-forge-cli.exe
 ```
-Place `cloudflared.exe` in the same folder as the output binary.
+Place `cloudflared.exe` in the same folder as the output binaries.
 
 To uninstall (Linux):
 ```bash
@@ -103,6 +103,9 @@ tunnel-forge --cli --port 3000 --json
 
 # Headless / no browser open
 tunnel-forge --cli --port 3000 --no-open --silent
+
+# Stop a tunnel running on a given port (started via GUI or CLI)
+tunnel-forge --cli --port 3000 --stop
 ```
 
 ### All flags
@@ -117,6 +120,7 @@ tunnel-forge --cli --port 3000 --no-open --silent
 | `--hostname` | — | Custom hostname (displayed immediately for custom domain tunnels) |
 | `--config` | — | Path to a `cloudflared` config YAML |
 | `--silent` | `false` | Suppress `cloudflared` log output |
+| `--stop` | `false` | Stop the tunnel running on `--port` (started from GUI or CLI) and exit |
 
 ---
 
@@ -164,8 +168,8 @@ tunnel-forge/
 
 **Linux (`make`):**
 ```
-make build      Build the binary -> ./bin/tunnel-forge
-make install    Symlink + .desktop entry  (run after build)
+make build      Build binaries -> ./bin/tunnel-forge + ./bin/tunnel-forge-cli
+make install    Symlink both + .desktop entry (run after build)
 make uninstall  Remove installed files
 make clean      Remove build artefacts
 make help       Show this message

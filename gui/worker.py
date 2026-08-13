@@ -12,6 +12,7 @@ from constants import MAX_RESTARTS, RESTART_DELAY_S
 from core.parser import extract_url, is_connected_signal
 from core.process import drain_queue, safe_terminate, start_subprocess
 from utils.logger import get_logger
+from utils.paths import remove_pid_file, write_pid_file
 
 log = get_logger("worker")
 
@@ -33,9 +34,10 @@ class WorkerThread(QThread):
     connected_signal: pyqtSignal = pyqtSignal()
     stopped_signal: pyqtSignal = pyqtSignal()
 
-    def __init__(self, cmd: list[str], static_url: Optional[str] = None) -> None:
+    def __init__(self, cmd: list[str], port: int, static_url: Optional[str] = None) -> None:
         super().__init__()
         self.cmd = cmd
+        self.port = port
         self.static_url = static_url
         self._running = True
         self._process = None
@@ -68,6 +70,7 @@ class WorkerThread(QThread):
 
             try:
                 self._process, q = start_subprocess(self.cmd)
+                write_pid_file(self.port, self._process.pid)
 
                 while self._running and self._process.poll() is None:
                     try:
@@ -92,6 +95,7 @@ class WorkerThread(QThread):
 
             finally:
                 safe_terminate(self._process)
+                remove_pid_file(self.port)
                 if q is not None:
                     drain_queue(q)
                 current_url = self.static_url

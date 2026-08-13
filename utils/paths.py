@@ -58,6 +58,54 @@ def set_custom_cloudflared_path(path: str | None) -> None:
     log.info("Custom cloudflared path set to: %s", path)
 
 
+# ── Running-tunnel PID files (enables `--stop` from a separate invocation) ───
+
+def _pid_dir() -> Path:
+    """Directory where per-port PID files are tracked."""
+    if os.name == "nt":
+        base = Path(os.environ.get("APPDATA", Path.home()))
+    else:
+        base = Path.home() / ".config"
+    d = base / "tunnel-forge" / "run"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        log.warning("Could not create run dir %s: %s", d, exc)
+    return d
+
+
+def get_pid_file(port: int) -> Path:
+    """Path to the PID file tracking the tunnel process bound to `port`."""
+    return _pid_dir() / f"tunnel-{port}.pid"
+
+
+def write_pid_file(port: int, pid: int) -> None:
+    """Record the running cloudflared PID for `port`, so it can be stopped later."""
+    try:
+        get_pid_file(port).write_text(str(pid))
+    except Exception as exc:
+        log.warning("Could not write pid file for port %d: %s", port, exc)
+
+
+def read_pid_file(port: int) -> int | None:
+    """Return the PID previously recorded for `port`, or None."""
+    p = get_pid_file(port)
+    if not p.exists():
+        return None
+    try:
+        return int(p.read_text().strip())
+    except Exception:
+        return None
+
+
+def remove_pid_file(port: int) -> None:
+    """Clear the PID record for `port` (called once the tunnel exits)."""
+    try:
+        get_pid_file(port).unlink(missing_ok=True)
+    except Exception as exc:
+        log.warning("Could not remove pid file for port %d: %s", port, exc)
+
+
 # ── Core helpers ─────────────────────────────────────────────────────────────
 
 def get_base_dir() -> str:

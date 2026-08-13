@@ -25,8 +25,9 @@ from constants import MAX_RESTARTS, RESTART_DELAY_S
 from core.cloudflared import TunnelManager
 from core.network import is_service_running
 from core.parser import extract_url, is_connected_signal
-from core.process import drain_queue, safe_terminate, start_subprocess
+from core.process import drain_queue, safe_terminate, start_subprocess, terminate_pid
 from utils.logger import get_logger
+from utils.paths import read_pid_file, remove_pid_file, write_pid_file
 
 log = get_logger("cli")
 
@@ -44,10 +45,47 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--hostname", help="Custom hostname — displayed immediately")
     p.add_argument("--config", help="Path to cloudflared config.yml")
     p.add_argument("--silent", action="store_true", help="Suppress log output")
+    p.add_argument(
+        "--stop", action="store_true",
+        help="Stop the running tunnel on --port (started via CLI or GUI) and exit",
+    )
     return p
 
 
+def stop_tunnel(port: int, as_json: bool = False) -> int:
+    """Stop a tunnel previously started (from any TunnelForge process) on `port`."""
+    pid = read_pid_file(port)
+    if pid is None:
+        msg = f"No running tunnel found on port {port}"
+        if as_json:
+            print(json.dumps({"status": "not_running", "port": port, "message": msg}), flush=True)
+        else:
+            log.warning(msg)
+        return 1
+
+    ok, err = terminate_pid(pid)
+    remove_pid_file(port)
+
+    if ok:
+        msg = f"Stopped tunnel on port {port} (PID {pid})"
+        if as_json:
+            print(json.dumps({"status": "stopped", "port": port, "pid": pid}), flush=True)
+        else:
+            print(f"\033[92m[STOPPED] {msg}\033[0m", flush=True)
+        return 0
+    else:
+        msg = f"Could not stop tunnel on port {port} (PID {pid}): {err}"
+        if as_json:
+            print(json.dumps({"status": "error", "port": port, "pid": pid, "message": err}), flush=True)
+        else:
+            log.error(msg)
+        return 1
+
+
 def run_cli(args: argparse.Namespace) -> int:
+    if args.stop:
+        return stop_tunnel(args.port, as_json=args.json)
+
     manager = TunnelManager()
 
     ok, msg = manager.check_ready(args.port)
@@ -83,6 +121,7 @@ def run_cli(args: argparse.Namespace) -> int:
 
         try:
             process, q = start_subprocess(cmd)
+            write_pid_file(args.port, process.pid)
 
             while process.poll() is None:
                 try:
@@ -116,6 +155,7 @@ def run_cli(args: argparse.Namespace) -> int:
 
         finally:
             safe_terminate(process)
+            remove_pid_file(args.port)
             if q is not None:
                 drain_queue(q)
             current_url = None

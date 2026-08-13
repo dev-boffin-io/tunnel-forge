@@ -97,6 +97,60 @@ def safe_terminate(process: Optional[subprocess.Popen]) -> None:
         log.error("Kill failed for PID %d: %s", process.pid, exc)
 
 
+def terminate_pid(pid: int) -> tuple[bool, str]:
+    """
+    Terminate a process (and its children) by PID, from a different process
+    than the one that started it — e.g. `--stop` in a fresh CLI invocation.
+
+    Prefers psutil (cross-platform, kills the whole tree) and falls back to
+    OS-native calls when psutil isn't available.
+    """
+    try:
+        import psutil  # optional dependency
+    except ImportError:
+        psutil = None
+
+    if psutil is not None:
+        try:
+            proc = psutil.Process(pid)
+        except psutil.NoSuchProcess:
+            return False, "process not found (already stopped)"
+        except Exception as exc:
+            return False, str(exc)
+
+        procs = proc.children(recursive=True) + [proc]
+        for p in procs:
+            try:
+                p.terminate()
+            except psutil.NoSuchProcess:
+                pass
+        _, alive = psutil.wait_procs(procs, timeout=3)
+        for p in alive:
+            try:
+                p.kill()
+            except psutil.NoSuchProcess:
+                pass
+        return True, ""
+
+    # --- Fallback without psutil -----------------------------------------
+    try:
+        if os.name == "nt":
+            result = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                return False, (result.stderr or result.stdout).strip()
+            return True, ""
+        else:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+            return True, ""
+    except ProcessLookupError:
+        return False, "process not found (already stopped)"
+    except Exception as exc:
+        return False, str(exc)
+
+
 def start_subprocess(cmd: list[str]) -> tuple[subprocess.Popen, Queue]:
     """
     Launch cmd and return (process, output_queue).

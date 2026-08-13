@@ -363,7 +363,7 @@ class TunnelTab(QWidget):
         self.btn.setText("FORGING...")
         self.btn.setEnabled(False)
 
-        self.worker = WorkerThread(cmd, static_url=static_url)
+        self.worker = WorkerThread(cmd, int(port_txt), static_url=static_url)
         self.worker.log_signal.connect(self._on_log)
         self.worker.url_signal.connect(self._on_url)
         self.worker.connected_signal.connect(self._on_connected)
