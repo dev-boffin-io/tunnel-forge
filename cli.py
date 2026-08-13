@@ -49,6 +49,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--stop", action="store_true",
         help="Stop the running tunnel on --port (started via CLI or GUI) and exit",
     )
+    p.add_argument(
+        "--install-cloudflared", action="store_true",
+        help="Download and install the latest cloudflared binary, then exit",
+    )
     return p
 
 
@@ -82,15 +86,60 @@ def stop_tunnel(port: int, as_json: bool = False) -> int:
         return 1
 
 
+def install_cloudflared(as_json: bool = False) -> int:
+    """Download the latest cloudflared release and install it next to the app."""
+    from core.installer import download_and_install
+
+    last_pct = -1
+
+    def _progress(downloaded: int, total: int) -> None:
+        nonlocal last_pct
+        if not total:
+            return
+        pct = int(downloaded * 100 / total)
+        if pct == last_pct:
+            return
+        last_pct = pct
+        if as_json:
+            print(json.dumps({"status": "downloading", "percent": pct}), flush=True)
+        elif pct % 10 == 0 or pct == 100:
+            print(f"\r[..] Downloading cloudflared... {pct}%", end="", flush=True)
+
+    def _log(msg: str) -> None:
+        if not as_json:
+            print(f"\n{msg}" if msg.startswith("✅") else msg, flush=True)
+
+    try:
+        path = download_and_install(progress_cb=_progress, log_cb=_log)
+    except RuntimeError as exc:
+        if as_json:
+            print(json.dumps({"status": "error", "message": str(exc)}), flush=True)
+        else:
+            print()
+            log.error("Install failed: %s", exc)
+        return 1
+
+    if as_json:
+        print(json.dumps({"status": "installed", "path": path}), flush=True)
+    else:
+        print(f"\033[92m[OK] cloudflared installed → {path}\033[0m", flush=True)
+    return 0
+
+
 def run_cli(args: argparse.Namespace) -> int:
     if args.stop:
         return stop_tunnel(args.port, as_json=args.json)
+
+    if args.install_cloudflared:
+        return install_cloudflared(as_json=args.json)
 
     manager = TunnelManager()
 
     ok, msg = manager.check_ready(args.port)
     if not ok:
         log.error(msg)
+        if "cloudflared binary not found" in msg:
+            log.error("Run with --install-cloudflared to download it automatically.")
         return 1
 
     mode = "custom" if args.tunnel_name else "quick"
